@@ -1,126 +1,84 @@
 """
-Database configuration and models for SQL Server
+Database configuration and models for PostgreSQL (Cloud-Ready)
 """
-import pyodbc
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import os
 from datetime import datetime
 import json
+from dotenv import load_dotenv
 
-# SQL Server Configuration
+# Load environment variables
+load_dotenv()
+
+# Database Configuration
 class DatabaseConfig:
-    """Configure SQL Server connection"""
-    DRIVER = "ODBC Driver 17 for SQL Server"
-    SERVER = "localhost\\SQLEXPRESS"  # or your server name
-    DATABASE = "HealthPredictionDB"
-    
-    # Option 1: Windows Authentication (with SSL disabled)
-    CONNECTION_STRING = f"Driver={DRIVER};Server={SERVER};Database={DATABASE};Trusted_Connection=yes;Encrypt=no"
+    """Configure PostgreSQL connection"""
+    # Use DATABASE_URL from environment (provided by Render)
+    # Fallback to local postgres if needed
+    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/health_prediction_db")
 
 class Database:
-    """Handles all database operations"""
+    """Handles all database operations using PostgreSQL"""
     
     @staticmethod
     def connect():
         """Create database connection"""
         try:
-            conn = pyodbc.connect(DatabaseConfig.CONNECTION_STRING)
+            conn = psycopg2.connect(DatabaseConfig.DATABASE_URL)
             return conn
-        except pyodbc.Error as e:
+        except Exception as e:
             print(f"Database Connection Error: {e}")
             return None
     
     @staticmethod
     def initialize():
-        """Create database and tables if they don't exist"""
+        """Create tables if they don't exist"""
         try:
-            # Connect to master to create database (with autocommit)
-            master_conn = pyodbc.connect(
-                f"Driver={DatabaseConfig.DRIVER};Server={DatabaseConfig.SERVER};Database=master;Trusted_Connection=yes;Encrypt=no"
-            )
-            master_conn.autocommit = True
-            master_cursor = master_conn.cursor()
-            
-            # Create database
-            try:
-                master_cursor.execute(f"CREATE DATABASE [{DatabaseConfig.DATABASE}]")
-                print(f"✅ Created database {DatabaseConfig.DATABASE}")
-            except pyodbc.Error as db_error:
-                if "already exists" in str(db_error):
-                    print(f"✅ Database {DatabaseConfig.DATABASE} already exists")
-                else:
-                    raise
-            master_cursor.close()
-            master_conn.close()
-            
-            # Connect to the new database and create tables
             conn = Database.connect()
+            if not conn:
+                print("⚠️ Could not connect to database for initialization. Ensure DATABASE_URL is correct.")
+                return False
+                
+            conn.autocommit = True
             cursor = conn.cursor()
             
             # Create Predictions table
+            # PostgreSQL uses SERIAL for auto-increment and BOOLEAN for bit
             cursor.execute("""
-                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Predictions')
-                BEGIN
-                    CREATE TABLE Predictions (
-                        PredictionID INT PRIMARY KEY IDENTITY(1,1),
-                        PredictionDate DATETIME DEFAULT GETDATE(),
-                        DiabetesResult BIT NULL,
-                        DiabetesProbability FLOAT NULL,
-                        HeartResult BIT NULL,
-                        HeartProbability FLOAT NULL,
-                        ParkinsonsResult BIT NULL,
-                        ParkinsonsProbability FLOAT NULL,
-                        BreastCancerResult BIT NULL,
-                        BreastCancerProbability FLOAT NULL,
-                        UserID NVARCHAR(100),
-                        Notes NVARCHAR(MAX)
-                    )
-                END
-                ELSE
-                BEGIN
-                    -- Add new columns if they don't exist
-                    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Predictions') AND name = 'ParkinsonsResult')
-                    BEGIN
-                        ALTER TABLE Predictions ADD ParkinsonsResult BIT NULL;
-                        ALTER TABLE Predictions ADD ParkinsonsProbability FLOAT NULL;
-                        ALTER TABLE Predictions ADD BreastCancerResult BIT NULL;
-                        ALTER TABLE Predictions ADD BreastCancerProbability FLOAT NULL;
-                    END
-                END
+                CREATE TABLE IF NOT EXISTS Predictions (
+                    PredictionID SERIAL PRIMARY KEY,
+                    PredictionDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    DiabetesResult BOOLEAN NULL,
+                    DiabetesProbability FLOAT NULL,
+                    HeartResult BOOLEAN NULL,
+                    HeartProbability FLOAT NULL,
+                    ParkinsonsResult BOOLEAN NULL,
+                    ParkinsonsProbability FLOAT NULL,
+                    BreastCancerResult BOOLEAN NULL,
+                    BreastCancerProbability FLOAT NULL,
+                    UserID VARCHAR(100),
+                    Notes TEXT
+                )
             """)
             
             # Create PatientData table
-            # Adding columns for Parkinson's and Breast Cancer features
-            # This is a bit messy but works for a flat structure
             cursor.execute("""
-                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'PatientData')
-                BEGIN
-                    CREATE TABLE PatientData (
-                        PatientDataID INT PRIMARY KEY IDENTITY(1,1),
-                        PredictionID INT NOT NULL,
-                        Pregnancies INT, Glucose INT, BloodPressure INT, SkinThickness INT, Insulin INT, BMI FLOAT, DiabetesPedigree FLOAT, Age INT,
-                        Sex INT, ChestPainType INT, RestingBP INT, Cholesterol INT, FastingBloodSugar INT, RestingECG INT, MaxHeartRate INT, ExerciseAngina INT, Oldpeak FLOAT, Slope INT, CA INT, Thal INT,
-                        Park_AvgF0 FLOAT, Park_Jitter FLOAT, Park_Shimmer FLOAT, Park_NHR FLOAT, Park_HNR FLOAT, Park_RPDE FLOAT, Park_DFA FLOAT, Park_Spread1 FLOAT,
-                        BC_Radius FLOAT, BC_Texture FLOAT, BC_Perimeter FLOAT, BC_Area FLOAT, BC_Smoothness FLOAT, BC_Compactness FLOAT, BC_Concavity FLOAT, BC_ConcavePoints FLOAT, BC_Symmetry FLOAT, BC_FractalDim FLOAT,
-                        FOREIGN KEY (PredictionID) REFERENCES Predictions(PredictionID)
-                    )
-                END
-                ELSE
-                BEGIN
-                    -- Add new columns to PatientData if they don't exist
-                    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('PatientData') AND name = 'Park_AvgF0')
-                    BEGIN
-                        ALTER TABLE PatientData ADD Park_AvgF0 FLOAT, Park_Jitter FLOAT, Park_Shimmer FLOAT, Park_NHR FLOAT, Park_HNR FLOAT, Park_RPDE FLOAT, Park_DFA FLOAT, Park_Spread1 FLOAT;
-                        ALTER TABLE PatientData ADD BC_Radius FLOAT, BC_Texture FLOAT, BC_Perimeter FLOAT, BC_Area FLOAT, BC_Smoothness FLOAT, BC_Compactness FLOAT, BC_Concavity FLOAT, BC_ConcavePoints FLOAT, BC_Symmetry FLOAT, BC_FractalDim FLOAT;
-                    END
-                END
+                CREATE TABLE IF NOT EXISTS PatientData (
+                    PatientDataID SERIAL PRIMARY KEY,
+                    PredictionID INT NOT NULL REFERENCES Predictions(PredictionID),
+                    Pregnancies INT, Glucose INT, BloodPressure INT, SkinThickness INT, Insulin INT, BMI FLOAT, DiabetesPedigree FLOAT, Age INT,
+                    Sex INT, ChestPainType INT, RestingBP INT, Cholesterol INT, FastingBloodSugar INT, RestingECG INT, MaxHeartRate INT, ExerciseAngina INT, Oldpeak FLOAT, Slope INT, CA INT, Thal INT,
+                    Park_AvgF0 FLOAT, Park_Jitter FLOAT, Park_Shimmer FLOAT, Park_NHR FLOAT, Park_HNR FLOAT, Park_RPDE FLOAT, Park_DFA FLOAT, Park_Spread1 FLOAT,
+                    BC_Radius FLOAT, BC_Texture FLOAT, BC_Perimeter FLOAT, BC_Area FLOAT, BC_Smoothness FLOAT, BC_Compactness FLOAT, BC_Concavity FLOAT, BC_ConcavePoints FLOAT, BC_Symmetry FLOAT, BC_FractalDim FLOAT
+                )
             """)
             
-            conn.commit()
             cursor.close()
             conn.close()
             print("✅ Database initialized successfully!")
             return True
-        except pyodbc.Error as e:
+        except Exception as e:
             print(f"Database Initialization Error: {e}")
             return False
 
@@ -141,11 +99,11 @@ class Database:
                                         ParkinsonsResult, ParkinsonsProbability,
                                         BreastCancerResult, BreastCancerProbability,
                                         UserID, Notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING PredictionID
             """, (diabetes_result, diabetes_prob, heart_result, heart_prob, 
                   park_result, park_prob, bc_result, bc_prob, user_id, notes))
             
-            cursor.execute("SELECT @@IDENTITY")
             prediction_id = cursor.fetchone()[0]
             
             cursor.execute("""
@@ -153,7 +111,7 @@ class Database:
                                         Sex, ChestPainType, RestingBP, Cholesterol, FastingBloodSugar, RestingECG, MaxHeartRate, ExerciseAngina, Oldpeak, Slope, CA, Thal,
                                         Park_AvgF0, Park_Jitter, Park_Shimmer, Park_NHR, Park_HNR, Park_RPDE, Park_DFA, Park_Spread1,
                                         BC_Radius, BC_Texture, BC_Perimeter, BC_Area, BC_Smoothness, BC_Compactness, BC_Concavity, BC_ConcavePoints, BC_Symmetry, BC_FractalDim)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 prediction_id,
                 diabetes_inputs[0] if diabetes_inputs else None, diabetes_inputs[1] if diabetes_inputs else None, diabetes_inputs[2] if diabetes_inputs else None,
@@ -175,76 +133,59 @@ class Database:
             cursor.close()
             conn.close()
             return prediction_id
-        except pyodbc.Error as e:
+        except Exception as e:
             print(f"Insert Prediction Error: {e}")
             return None
-
-    @staticmethod
-    def get_all_predictions(limit=1000):
-        try:
-            conn = Database.connect()
-            if not conn: return []
-            cursor = conn.cursor()
-            cursor.execute(f"SELECT TOP {limit} * FROM Predictions ORDER BY PredictionDate DESC")
-            columns = [description[0] for description in cursor.description]
-            predictions = [dict(zip(columns, row)) for row in cursor.fetchall()]
-            cursor.close(); conn.close()
-            return predictions
-        except pyodbc.Error as e:
-            print(f"Get Predictions Error: {e}"); return []
 
     @staticmethod
     def get_predictions_with_patient_data(limit=1000):
         try:
             conn = Database.connect()
             if not conn: return []
-            cursor = conn.cursor()
-            cursor.execute(f"""
-                SELECT TOP {limit} 
+            # Use RealDictCursor for compatibility with existing JSON response expectations
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute("""
+                SELECT 
                     p.*, pd.Age, pd.BMI, pd.Glucose, pd.BloodPressure, pd.Cholesterol, pd.MaxHeartRate
                 FROM Predictions p
                 LEFT JOIN PatientData pd ON p.PredictionID = pd.PredictionID
                 ORDER BY p.PredictionDate DESC
-            """)
-            columns = [description[0] for description in cursor.description]
-            predictions = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                LIMIT %s
+            """, (limit,))
+            predictions = cursor.fetchall()
             cursor.close(); conn.close()
             return predictions
-        except pyodbc.Error as e:
-            print(f"Get Predictions with Patient Data Error: {e}"); return []
+        except Exception as e:
+            print(f"Get Predictions Error: {e}"); return []
 
     @staticmethod
     def get_statistics():
         try:
             conn = Database.connect()
             if not conn: return {}
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute("""
                 SELECT 
-                    COUNT(*) as Total,
-                    SUM(CASE WHEN DiabetesResult = 1 THEN 1 ELSE 0 END),
-                    SUM(CASE WHEN HeartResult = 1 THEN 1 ELSE 0 END),
-                    SUM(CASE WHEN ParkinsonsResult = 1 THEN 1 ELSE 0 END),
-                    SUM(CASE WHEN BreastCancerResult = 1 THEN 1 ELSE 0 END),
-                    AVG(DiabetesProbability),
-                    AVG(HeartProbability),
-                    AVG(ParkinsonsProbability),
-                    AVG(BreastCancerProbability)
+                    COUNT(*) as total_predictions,
+                    SUM(CASE WHEN DiabetesResult = TRUE THEN 1 ELSE 0 END) as positive_diabetes,
+                    SUM(CASE WHEN HeartResult = TRUE THEN 1 ELSE 0 END) as positive_heart,
+                    SUM(CASE WHEN ParkinsonsResult = TRUE THEN 1 ELSE 0 END) as positive_parkinsons,
+                    SUM(CASE WHEN BreastCancerResult = TRUE THEN 1 ELSE 0 END) as positive_breast_cancer,
+                    AVG(DiabetesProbability) as avg_diabetes_probability,
+                    AVG(HeartProbability) as avg_heart_probability,
+                    AVG(ParkinsonsProbability) as avg_parkinsons_probability,
+                    AVG(BreastCancerProbability) as avg_breast_cancer_probability
                 FROM Predictions
             """)
-            row = cursor.fetchone()
-            stats = {
-                "total_predictions": row[0] or 0,
-                "positive_diabetes": row[1] or 0,
-                "positive_heart": row[2] or 0,
-                "positive_parkinsons": row[3] or 0,
-                "positive_breast_cancer": row[4] or 0,
-                "avg_diabetes_probability": float(row[5]) if row[5] else 0,
-                "avg_heart_probability": float(row[6]) if row[6] else 0,
-                "avg_parkinsons_probability": float(row[7]) if row[7] else 0,
-                "avg_breast_cancer_probability": float(row[8]) if row[8] else 0
-            }
+            stats = cursor.fetchone()
+            
+            # Convert decimal to float for JSON serialization if needed
+            for key in stats:
+                if stats[key] is None: stats[key] = 0
+                elif not isinstance(stats[key], (int, float)):
+                    stats[key] = float(stats[key])
+                    
             cursor.close(); conn.close()
             return stats
-        except pyodbc.Error as e:
+        except Exception as e:
             print(f"Get Statistics Error: {e}"); return {}
