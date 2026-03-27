@@ -72,7 +72,7 @@ def predict_diabetes():
     pred = diabetes_model.predict(inp)[0]
     prob = diabetes_model.predict_proba(inp)[0][1]
     if data.get("save_to_db", True):
-        Database.insert_prediction(diabetes_result=int(pred), diabetes_prob=float(prob), diabetes_inputs=vals)
+        Database.insert_prediction(diabetes_result=bool(int(pred)), diabetes_prob=float(prob), diabetes_inputs=vals)
     return jsonify({"result": int(pred), "probability": float(prob)})
 
 @app.route("/api/predict/heart", methods=["POST"])
@@ -85,7 +85,7 @@ def predict_heart():
     pred = heart_model.predict(inp)[0]
     prob = heart_model.predict_proba(inp)[0][1]
     if data.get("save_to_db", True):
-        Database.insert_prediction(heart_result=int(pred), heart_prob=float(prob), heart_inputs=vals)
+        Database.insert_prediction(heart_result=bool(int(pred)), heart_prob=float(prob), heart_inputs=vals)
     return jsonify({"result": int(pred), "probability": float(prob)})
 
 @app.route("/api/predict/parkinsons", methods=["POST"])
@@ -98,7 +98,7 @@ def predict_parkinsons():
     pred = park_model.predict(inp)[0]
     prob = park_model.predict_proba(inp)[0][1]
     if data.get("save_to_db", True):
-        Database.insert_prediction(park_result=int(pred), park_prob=float(prob), park_inputs=vals)
+        Database.insert_prediction(park_result=bool(int(pred)), park_prob=float(prob), park_inputs=vals)
     return jsonify({"result": int(pred), "probability": float(prob)})
 
 @app.route("/api/predict/breast_cancer", methods=["POST"])
@@ -111,7 +111,7 @@ def predict_breast_cancer():
     pred = bc_model.predict(inp)[0]
     prob = bc_model.predict_proba(inp)[0][1]
     if data.get("save_to_db", True):
-        Database.insert_prediction(bc_result=int(pred), bc_prob=float(prob), bc_inputs=vals)
+        Database.insert_prediction(bc_result=bool(int(pred)), bc_prob=float(prob), bc_inputs=vals)
     return jsonify({"result": int(pred), "probability": float(prob)})
 
 @app.route("/api/statistics", methods=["GET"])
