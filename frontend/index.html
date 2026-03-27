@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthSense AI - Predictive Health Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand">HealthSense AI</a>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link active">Dashboard</a>
+            <a href="diabetes.html" class="nav-link">Diabetes</a>
+            <a href="heart.html" class="nav-link">Heart</a>
+            <a href="parkinsons.html" class="nav-link">Parkinson's</a>
+            <a href="breast_cancer.html" class="nav-link">Breast Cancer</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="animate-in">
+            <h1>Predictive Health Dashboard</h1>
+            <p class="text-muted">Real-time health risk analytics and AI-driven diagnostic insights.</p>
+        </header>
+
+        <!-- Stats Overview -->
+        <div class="grid animate-in" style="animation-delay: 0.1s;">
+            <div class="glass-card stat-card">
+                <div class="stat-icon" style="background: rgba(99, 102, 241, 0.1); color: var(--primary);">
+                    <i class="bi bi-person-check"></i>
+                </div>
+                <div class="stat-value" id="totalPredictions">0</div>
+                <div class="stat-label">Total Predictions</div>
+            </div>
+            <div class="glass-card stat-card">
+                <div class="stat-icon" style="background: rgba(239, 68, 68, 0.1); color: var(--danger);">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <div class="stat-value" id="highRiskCount">0</div>
+                <div class="stat-label">High Risk Detected</div>
+            </div>
+            <div class="glass-card stat-card">
+                <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--success);">
+                    <i class="bi bi-graph-up-arrow"></i>
+                </div>
+                <div class="stat-value" id="avgProbability">0%</div>
+                <div class="stat-label">Avg Risk Probability</div>
+            </div>
+        </div>
+
+        <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 2rem; margin-top: 2rem;">
+            <!-- Trend Chart -->
+            <div class="glass-card animate-in" style="animation-delay: 0.2s;">
+                <h3>Risk Probability Trends</h3>
+                <div style="height: 300px; margin-top: 1rem;">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="glass-card animate-in" style="animation-delay: 0.3s; height: fit-content;">
+                <h3>Predictive Models</h3>
+                <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem;">
+                    <a href="diabetes.html" class="btn btn-primary" style="justify-content: flex-start; background: linear-gradient(135deg, var(--primary), #818cf8);">
+                        <i class="bi bi-droplet"></i> Diabetes Assessment
+                    </a>
+                    <a href="heart.html" class="btn btn-primary" style="justify-content: flex-start; background: linear-gradient(135deg, var(--secondary), var(--accent));">
+                        <i class="bi bi-heart-pulse"></i> Cardiac Analysis
+                    </a>
+                    <a href="parkinsons.html" class="btn btn-primary" style="justify-content: flex-start; background: linear-gradient(135deg, #10b981, #34d399);">
+                        <i class="bi bi-activity"></i> Parkinson's Study
+                    </a>
+                    <a href="breast_cancer.html" class="btn btn-primary" style="justify-content: flex-start; background: linear-gradient(135deg, #f43f5e, #fb7185);">
+                        <i class="bi bi-shield-plus"></i> Oncology Screen
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Predictions Table -->
+        <div class="glass-card animate-in" style="animation-delay: 0.4s; margin-top: 2rem;">
+            <h3>Recent Health Assessments</h3>
+            <div style="overflow-x: auto; margin-top: 1.5rem;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <th style="padding: 1rem;">Date</th>
+                            <th style="padding: 1rem;">Model</th>
+                            <th style="padding: 1rem;">Result</th>
+                            <th style="padding: 1rem;">Probability</th>
+                            <th style="padding: 1rem;">Risk Level</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentPredictionsBody">
+                        <!-- Data will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
