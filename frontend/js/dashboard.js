@@ -56,7 +56,7 @@ function renderRecentPredictions(predictions) {
         else if (p.ParkinsonsProbability !== null) { model = 'Parkinson\'s'; result = p.ParkinsonsResult; prob = p.ParkinsonsProbability; }
         else if (p.BreastCancerProbability !== null) { model = 'Breast Cancer'; result = p.BreastCancerResult; prob = p.BreastCancerProbability; }
 
-        const isHighRisk = result === 1;
+        const isHighRisk = result === 1 || result === true;
         const riskLevel = isHighRisk ? 'High' : 'Low';
         const riskColor = isHighRisk ? 'var(--danger)' : 'var(--success)';
 

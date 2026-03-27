@@ -9,7 +9,9 @@ import json
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(BASE_DIR, ".env")
+load_dotenv(dotenv_path=env_path)
 
 # Database Configuration
 class DatabaseConfig:
@@ -146,12 +148,15 @@ class Database:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute("""
                 SELECT 
-                    p.*, pd.Age, pd.BMI, pd.Glucose, pd.BloodPressure, pd.Cholesterol, pd.MaxHeartRate
+                    p.*, 
+                    TO_CHAR(p.PredictionDate, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as PredictionDate,
+                    pd.Age, pd.BMI, pd.Glucose, pd.BloodPressure, pd.Cholesterol, pd.MaxHeartRate
                 FROM Predictions p
                 LEFT JOIN PatientData pd ON p.PredictionID = pd.PredictionID
                 ORDER BY p.PredictionDate DESC
                 LIMIT %s
             """, (limit,))
+            # Handle dictionary result correctly after TO_CHAR duplicate
             predictions = cursor.fetchall()
             cursor.close(); conn.close()
             return predictions
