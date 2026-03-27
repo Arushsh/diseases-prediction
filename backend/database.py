@@ -148,16 +148,21 @@ class Database:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute("""
                 SELECT 
-                    p.*, 
-                    TO_CHAR(p.PredictionDate, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as PredictionDate,
-                    pd.Age, pd.BMI, pd.Glucose, pd.BloodPressure, pd.Cholesterol, pd.MaxHeartRate
+                    p.*, pd.Age, pd.BMI, pd.Glucose, pd.BloodPressure, pd.Cholesterol, pd.MaxHeartRate
                 FROM Predictions p
                 LEFT JOIN PatientData pd ON p.PredictionID = pd.PredictionID
                 ORDER BY p.PredictionDate DESC
                 LIMIT %s
             """, (limit,))
-            # Handle dictionary result correctly after TO_CHAR duplicate
             predictions = cursor.fetchall()
+            
+            # Convert datetime to ISO string for JSON serialization
+            for row in predictions:
+                if row.get('predictiondate'):
+                    row['predictiondate'] = row['predictiondate'].isoformat()
+                elif row.get('PredictionDate'):
+                    row['PredictionDate'] = row['PredictionDate'].isoformat()
+                    
             cursor.close(); conn.close()
             return predictions
         except Exception as e:
